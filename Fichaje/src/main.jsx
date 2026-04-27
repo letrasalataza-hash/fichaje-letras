@@ -2126,4 +2126,9 @@ export default function AppFichajeEmpleados() {
   );
 }
 
+import ReactDOM from "react-dom/client";
+
+ReactDOM.createRoot(document.getElementById("root")).render(
+  <AppFichajeEmpleados />
+);
 );
