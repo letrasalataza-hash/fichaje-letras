@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import ReactDOM from "react-dom/client";
 import { jsPDF } from "jspdf";
+import "./styles.css";
 // Componentes simplificados (sin dependencias externas)
 function Card({ children, className = "" }) {
   return <div className={`bg-white rounded-3xl ${className}`}>{children}</div>;
@@ -2126,9 +2128,6 @@ export default function AppFichajeEmpleados() {
   );
 }
 
-import ReactDOM from "react-dom/client";
-
 ReactDOM.createRoot(document.getElementById("root")).render(
   <AppFichajeEmpleados />
-);
 );
