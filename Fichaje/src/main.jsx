@@ -1,9 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { jsPDF } from "jspdf";
-import ReactDOM from "react-dom/client";
-import "./styles.css";
+// Componentes simplificados (sin dependencias externas)
 function Card({ children, className = "" }) {
-  return <div className={`card ${className}`}>{children}</div>;
+  return <div className={`bg-white rounded-3xl ${className}`}>{children}</div>;
 }
 
 function CardContent({ children, className = "" }) {
@@ -11,12 +10,19 @@ function CardContent({ children, className = "" }) {
 }
 
 function Button({ children, className = "", variant = "default", ...props }) {
+  const base = "px-4 py-2 rounded-2xl font-semibold cursor-pointer";
+  const styles = {
+    default: "bg-black text-white",
+    outline: "border border-gray-300 bg-white",
+    secondary: "bg-gray-200",
+  };
   return (
-    <button className={`btn ${variant} ${className}`} {...props}>
+    <button className={`${base} ${styles[variant] || styles.default} ${className}`} {...props}>
       {children}
     </button>
   );
 }
+
 // =========================================================
 // CONFIGURACIÓN SUPABASE
 // =========================================================
@@ -2119,6 +2125,5 @@ export default function AppFichajeEmpleados() {
     </main>
   );
 }
-ReactDOM.createRoot(document.getElementById("root")).render(
-  <AppFichajeEmpleados />
+
 );
