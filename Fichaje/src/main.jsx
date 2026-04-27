@@ -1,8 +1,22 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { jsPDF } from "jspdf";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import ReactDOM from "react-dom/client";
+import "./styles.css";
+function Card({ children, className = "" }) {
+  return <div className={`card ${className}`}>{children}</div>;
+}
 
+function CardContent({ children, className = "" }) {
+  return <div className={className}>{children}</div>;
+}
+
+function Button({ children, className = "", variant = "default", ...props }) {
+  return (
+    <button className={`btn ${variant} ${className}`} {...props}>
+      {children}
+    </button>
+  );
+}
 // =========================================================
 // CONFIGURACIÓN SUPABASE
 // =========================================================
@@ -2105,4 +2119,6 @@ export default function AppFichajeEmpleados() {
     </main>
   );
 }
-
+ReactDOM.createRoot(document.getElementById("root")).render(
+  <AppFichajeEmpleados />
+);
