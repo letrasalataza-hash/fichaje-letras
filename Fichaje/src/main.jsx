@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { jsPDF } from "jspdf";
-import "./styles.css";
+
 // Componentes simplificados (sin dependencias externas)
 function Card({ children, className = "" }) {
   return <div className={`bg-white rounded-3xl ${className}`}>{children}</div>;
@@ -1588,9 +1588,11 @@ export default function AppFichajeEmpleados() {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <Button onClick={() => setTestMode(!testMode)} variant="secondary">
-                {testMode ? "Salir modo prueba" : "Modo prueba"}
-              </Button>
+              {isAdminUnlocked && (
+                <Button onClick={() => setTestMode(!testMode)} variant="secondary">
+                  {testMode ? "Salir modo prueba" : "Modo prueba"}
+                </Button>
+              )}
 
               {viewMode === "kiosk" && !isAdminUnlocked && (
                 <div className="flex gap-2">
@@ -2131,3 +2133,4 @@ export default function AppFichajeEmpleados() {
 ReactDOM.createRoot(document.getElementById("root")).render(
   <AppFichajeEmpleados />
 );
+
