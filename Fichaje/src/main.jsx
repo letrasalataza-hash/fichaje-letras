@@ -919,12 +919,14 @@ export default function AppFichajeEmpleados() {
       { id: "r6", employeeId: "2", employeeName: "Equipo Librería", record_type: "salida", label: "Salida registrada", date: `${month}-01`, time: "13:00", createdAt: new Date(`${month}-01T13:00:00`).getTime(), note: "" },
     ];
 
-    setEmployees(mockEmployees);
+    setEmployees(mockEmployees.map((employee) => ({ ...employee, isActive: true })));
     setSelectedEmployeeId("1");
     setRecords(mockRecords);
     setMessage("Modo prueba activado.");
   }
 
+  const activeEmployees = useMemo(() => employees.filter((employee) => employee.isActive !== false), [employees]);
+  const inactiveEmployees = useMemo(() => employees.filter((employee) => employee.isActive === false), [employees]);
   const selectedEmployee = employees.find((employee) => employee.id === selectedEmployeeId);
 
   const filteredRecords = useMemo(() => {
@@ -975,16 +977,24 @@ export default function AppFichajeEmpleados() {
   async function loadInitialData() {
     setIsLoading(true);
     try {
-      const employeeRows = await supabaseRequest("employees?select=id,organization_id,full_name,pin_hash&or=(is_active.is.null,is_active.eq.true)&order=full_name.asc");
+      let employeeRows;
+      try {
+        employeeRows = await supabaseRequest("employees?select=id,organization_id,full_name,pin_hash,is_active&order=full_name.asc");
+      } catch (error) {
+        const missingActiveColumn = error.message.includes("is_active") || error.message.includes("schema cache");
+        if (!missingActiveColumn) throw error;
+        employeeRows = await supabaseRequest("employees?select=id,organization_id,full_name,pin_hash&order=full_name.asc");
+      }
       const mappedEmployees = employeeRows.map((employee) => ({
         id: employee.id,
         organizationId: employee.organization_id,
         name: employee.full_name,
         pin: employee.pin_hash,
+        isActive: employee.is_active !== false,
       }));
 
       setEmployees(mappedEmployees);
-      setSelectedEmployeeId((current) => current || mappedEmployees[0]?.id || "");
+      setSelectedEmployeeId((current) => current || mappedEmployees.find((employee) => employee.isActive)?.id || mappedEmployees[0]?.id || "");
 
       let recordRows;
       try {
@@ -1209,7 +1219,7 @@ export default function AppFichajeEmpleados() {
         name: cleanName,
         pin: await hashPin(cleanPin),
       };
-      setEmployees((current) => [...current, employee]);
+      setEmployees((current) => [...current, { ...employee, isActive: true }]);
       setNewName("");
       setNewPin("");
       setMessage(`Empleado de prueba añadido: ${employee.name}. Selecciónalo en Admin para ver sus informes.`);
@@ -1259,7 +1269,7 @@ export default function AppFichajeEmpleados() {
         pin: inserted[0].pin_hash,
       };
 
-      setEmployees((current) => [...current, employee]);
+      setEmployees((current) => [...current, { ...employee, isActive: true }]);
       setNewName("");
       setNewPin("");
       setMessage(`Empleado añadido en Supabase: ${employee.name}. Selecciónalo en Admin para ver sus informes.`);
@@ -1281,8 +1291,8 @@ export default function AppFichajeEmpleados() {
     if (!confirmed) return;
 
     if (testMode) {
-      setEmployees((current) => current.filter((item) => item.id !== employeeId));
-      setSelectedEmployeeId((current) => (current === employeeId ? getNextEmployeeId(employeeId, employees) : current));
+      setEmployees((current) => current.map((item) => item.id === employeeId ? { ...item, isActive: false } : item));
+      setSelectedEmployeeId((current) => (current === employeeId ? getNextEmployeeId(employeeId, activeEmployees) : current));
       setMessage(`Empleado de prueba dado de baja: ${employee.name}.`);
       return;
     }
@@ -1300,8 +1310,8 @@ export default function AppFichajeEmpleados() {
         throw new Error("Falta la columna is_active en employees. Ejecuta en Supabase: alter table employees add column if not exists is_active boolean default true; notify pgrst, 'reload schema';");
       }
 
-      setEmployees((current) => current.filter((item) => item.id !== employeeId));
-      setSelectedEmployeeId((current) => (current === employeeId ? getNextEmployeeId(employeeId, employees) : current));
+      setEmployees((current) => current.map((item) => item.id === employeeId ? { ...item, isActive: false } : item));
+      setSelectedEmployeeId((current) => (current === employeeId ? getNextEmployeeId(employeeId, activeEmployees) : current));
       setMessage(`Empleado dado de baja: ${employee.name}. Sus fichajes históricos se conservan.`);
     } catch (error) {
       setMessage(`Error dando de baja empleado: ${error.message}`);
@@ -1679,12 +1689,12 @@ export default function AppFichajeEmpleados() {
                       value={selectedEmployeeId}
                       onChange={(event) => setSelectedEmployeeId(event.target.value)}
                       className="w-full rounded-2xl border border-slate-200 bg-white p-3 outline-none focus:ring-2 focus:ring-slate-300"
-                      disabled={isLoading || employees.length === 0}
+                      disabled={isLoading || activeEmployees.length === 0}
                     >
-                      {employees.length === 0 ? (
-                        <option value="">Sin empleados</option>
+                      {activeEmployees.length === 0 ? (
+                        <option value="">Sin empleados activos</option>
                       ) : (
-                        employees.map((employee) => (
+                        activeEmployees.map((employee) => (
                           <option key={employee.id} value={employee.id}>{employee.name}</option>
                         ))
                       )}
@@ -1814,10 +1824,10 @@ export default function AppFichajeEmpleados() {
                     <p className="text-sm text-slate-500">Pulsa un empleado para ver sus informes.</p>
                   </div>
                   <div className="space-y-2">
-                    {employees.length === 0 ? (
-                      <div className="rounded-xl bg-white px-4 py-3 text-sm text-slate-500 shadow-sm">Todavía no hay empleados cargados.</div>
+                    {activeEmployees.length === 0 ? (
+                      <div className="rounded-xl bg-white px-4 py-3 text-sm text-slate-500 shadow-sm">Todavía no hay empleados activos.</div>
                     ) : (
-                      employees.map((employee) => (
+                      activeEmployees.map((employee) => (
                         <div
                           key={employee.id}
                           className={`flex items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm font-medium shadow-sm ${selectedEmployeeId === employee.id ? "bg-slate-900 text-white" : "bg-slate-50 text-slate-900"}`}
@@ -1851,6 +1861,25 @@ export default function AppFichajeEmpleados() {
                       ))
                     )}
                   </div>
+
+                  {inactiveEmployees.length > 0 && (
+                    <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <h3 className="text-sm font-bold text-slate-700">Empleados dados de baja</h3>
+                      <p className="mb-3 text-xs text-slate-500">No aparecen en el kiosko, pero se conservan para informes históricos.</p>
+                      <div className="space-y-2">
+                        {inactiveEmployees.map((employee) => (
+                          <button
+                            key={employee.id}
+                            type="button"
+                            onClick={() => setSelectedEmployeeId(employee.id)}
+                            className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium shadow-sm ${selectedEmployeeId === employee.id ? "bg-slate-900 text-white" : "bg-white text-slate-600"}`}
+                          >
+                            {employee.name} · baja
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </section>
@@ -2031,7 +2060,7 @@ export default function AppFichajeEmpleados() {
                           <option value="">Sin empleados</option>
                         ) : (
                           employees.map((employee) => (
-                            <option key={employee.id} value={employee.id}>{employee.name}</option>
+                            <option key={employee.id} value={employee.id}>{employee.name}{employee.isActive === false ? " · baja" : ""}</option>
                           ))
                         )}
                       </select>
@@ -2174,4 +2203,3 @@ export default function AppFichajeEmpleados() {
 ReactDOM.createRoot(document.getElementById("root")).render(
   <AppFichajeEmpleados />
 );
-
