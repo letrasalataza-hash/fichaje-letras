@@ -332,10 +332,35 @@ function formatMinutes(totalMinutes) {
   return `${hours}h ${String(minutes).padStart(2, "0")}min`;
 }
 
-function validateSequenceForNewRecord(existingDayRecords, newRecord) {
-  const testRecords = [...existingDayRecords, newRecord]
-    .map((record) => ({ ...record, calculationType: record.effectiveType || record.record_type }))
+function normalizeRecordsForCalculation(dayRecords) {
+  const ordered = [...dayRecords]
     .sort((a, b) => a.createdAt - b.createdAt);
+
+  let state = "fuera";
+
+  return ordered.map((record) => {
+    let calculationType = record.effectiveType || record.record_type;
+
+    // Compatibilidad con ajustes antiguos que se guardaron como "ajuste"
+    // sin conservar si eran entrada/salida/pausa. Si hay una entrada abierta,
+    // se interpreta como salida para cerrar la jornada.
+    if (record.record_type === "ajuste" && !record.effectiveType) {
+      if (state === "trabajando") calculationType = "salida";
+      else if (state === "pausa") calculationType = "pausa_fin";
+      else calculationType = "entrada";
+    }
+
+    if (calculationType === "entrada") state = "trabajando";
+    if (calculationType === "pausa_inicio") state = "pausa";
+    if (calculationType === "pausa_fin") state = "trabajando";
+    if (calculationType === "salida") state = "fuera";
+
+    return { ...record, calculationType };
+  });
+}
+
+function validateSequenceForNewRecord(existingDayRecords, newRecord) {
+  const testRecords = normalizeRecordsForCalculation([...existingDayRecords, newRecord]);
 
   let state = "fuera";
   const issues = [];
@@ -392,9 +417,7 @@ function getRecordShortLabel(record) {
 }
 
 function getTimelineSegments(dayRecords) {
-  const ordered = [...dayRecords]
-    .map((record) => ({ ...record, calculationType: record.effectiveType || record.record_type }))
-    .sort((a, b) => a.createdAt - b.createdAt);
+  const ordered = normalizeRecordsForCalculation(dayRecords);
 
   return ordered.map((record, index) => {
     const next = ordered[index + 1];
@@ -420,9 +443,7 @@ function getTimelineSegments(dayRecords) {
 }
 
 function calculateDailySummary(dayRecords) {
-  const ordered = [...dayRecords]
-    .map((record) => ({ ...record, calculationType: record.effectiveType || record.record_type }))
-    .sort((a, b) => a.createdAt - b.createdAt);
+  const ordered = normalizeRecordsForCalculation(dayRecords);
 
   let workStart = null;
   let pauseStart = null;
@@ -676,6 +697,11 @@ function runSelfTests() {
     { id: "a", record_type: "entrada", createdAt: new Date("2026-04-27T09:00:00").getTime() },
     { id: "b", record_type: "salida", createdAt: new Date("2026-04-27T14:00:00").getTime() },
   ])[0].durationMinutes === 300, "Test duración timeline");
+  const legacyAdjustmentSummary = calculateDailySummary([
+    { record_type: "entrada", createdAt: new Date("2026-04-28T15:52:00").getTime() },
+    { record_type: "ajuste", createdAt: new Date("2026-04-28T20:30:00").getTime(), note: "" },
+  ]);
+  console.assert(legacyAdjustmentSummary.netWorkMinutes === 278, "Test ajuste antiguo computa como salida si hay entrada abierta");
   const sequenceIssues = validateSequenceForNewRecord(
     [{ record_type: "entrada", date: "2026-04-27", time: "09:00", createdAt: new Date("2026-04-27T09:00:00").getTime() }],
     { record_type: "entrada", date: "2026-04-27", time: "10:00", createdAt: new Date("2026-04-27T10:00:00").getTime() }
@@ -2134,4 +2160,3 @@ export default function AppFichajeEmpleados() {
 ReactDOM.createRoot(document.getElementById("root")).render(
   <AppFichajeEmpleados />
 );
-
