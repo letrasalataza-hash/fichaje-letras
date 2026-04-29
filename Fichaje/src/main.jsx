@@ -488,19 +488,19 @@ function calculateDailySummary(dayRecords) {
 
   for (const record of ordered) {
     if (record.calculationType === "entrada") {
-      if (workStart) warnings.push("Hay una entrada sin salida antes de otra entrada.");
+      if (workStart) warnings.push("Registro inconsistente: entrada registrada cuando ya constaba una entrada abierta.");
       workStart = record.createdAt;
     }
 
     if (record.calculationType === "pausa_inicio") {
-      if (!workStart) warnings.push("Hay una pausa iniciada sin entrada previa.");
-      if (pauseStart) warnings.push("Hay una pausa iniciada dos veces sin volver.");
+      if (!workStart) warnings.push("Registro inconsistente: pausa iniciada sin entrada previa.");
+      if (pauseStart) warnings.push("Registro inconsistente: pausa iniciada dos veces sin registrar fin de pausa.");
       pauseStart = record.createdAt;
     }
 
     if (record.calculationType === "pausa_fin") {
       if (!pauseStart) {
-        warnings.push("Hay una vuelta de pausa sin pausa iniciada.");
+        warnings.push("Registro inconsistente: fin de pausa sin pausa abierta.");
       } else {
         breakMinutes += (record.createdAt - pauseStart) / 60000;
         pauseStart = null;
@@ -509,21 +509,21 @@ function calculateDailySummary(dayRecords) {
 
     if (record.calculationType === "salida") {
       if (!workStart) {
-        warnings.push("Hay una salida sin entrada previa.");
+        warnings.push("Registro inconsistente: salida registrada sin entrada previa.");
       } else {
         workMinutes += (record.createdAt - workStart) / 60000;
         workStart = null;
       }
 
       if (pauseStart) {
-        warnings.push("La salida se ha marcado mientras había una pausa abierta.");
+        warnings.push("Registro inconsistente: salida registrada durante una pausa activa.");
         pauseStart = null;
       }
     }
   }
 
-  if (workStart) warnings.push("Hay una entrada abierta sin salida.");
-  if (pauseStart) warnings.push("Hay una pausa abierta sin volver.");
+  if (workStart) warnings.push("Registro pendiente: entrada abierta sin salida registrada.");
+  if (pauseStart) warnings.push("Registro pendiente: pausa abierta sin fin de pausa registrado.");
 
   const adjustmentCount = dayRecords.filter((record) => record.record_type === "ajuste" || parseAdjustmentNote(record.note).isManualAdjustment).length;
   if (adjustmentCount > 0) warnings.push(`Hay ${adjustmentCount} ajuste(s) manual(es) aplicado(s) en este día.`);
@@ -682,9 +682,11 @@ function buildReportHTML({ title, documentLabel, employeeName, periodLabel, summ
 
   const legalBlock = `
       <section class="legal-note">
-        <h3>Declaración de integridad</h3>
-        <p>Este informe se ha generado a partir de los registros almacenados en la base de datos del sistema de control horario. Los fichajes originales no deben modificarse ni eliminarse; cualquier corrección debe figurar como ajuste manual trazable, indicando fecha, hora, responsable y motivo.</p>
-        <p>El código de verificación y la huella SHA-256 permiten identificar la versión concreta del informe emitido.</p>
+        <h3>Declaración legal e integridad del registro</h3>
+        <p>El presente informe recoge el registro diario de jornada de la persona trabajadora conforme a lo establecido en el artículo 34.9 del Estatuto de los Trabajadores, introducido por el Real Decreto-ley 8/2019.</p>
+        <p>La empresa conservará estos registros durante el periodo legalmente exigible, quedando a disposición de la persona trabajadora, de sus representantes legales y de la Inspección de Trabajo y Seguridad Social.</p>
+        <p>Los datos reflejados se corresponden con los registros almacenados en el sistema de control horario. Los fichajes originales no deben modificarse ni eliminarse; cualquier corrección deberá constar como ajuste manual trazable, indicando fecha, hora, responsable y motivo.</p>
+        <p>El código de verificación y la huella SHA-256 identifican la versión concreta del informe emitido. Cualquier alteración posterior de los datos utilizados para generar este informe producirá una huella distinta.</p>
       </section>`;
 
   return `<!doctype html>
@@ -737,14 +739,14 @@ function buildReportHTML({ title, documentLabel, employeeName, periodLabel, summ
         <div class="meta"><div><strong>Documento:</strong> ${escapeHTML(documentLabel)}</div><div><strong>Generado:</strong> ${generatedAt}</div></div>
       </header>
       <h1>${escapeHTML(documentLabel)}</h1>
-      <section class="employee-box"><div><strong>Empleado:</strong> ${safeEmployeeName}</div><div><strong>Periodo:</strong> ${safePeriodLabel}</div></section>
+      <section class="employee-box"><div><strong>Empresa:</strong> Letras a la Taza</div><div><strong>CIF:</strong> B71209530</div><div><strong>Centro de trabajo:</strong> Tudela</div><div><strong>Empleado:</strong> ${safeEmployeeName}</div><div><strong>Periodo:</strong> ${safePeriodLabel}</div></section>
       <section class="summary">${cards}</section>
       ${warningsBlock}
       ${signatureBlock}
       ${adjustmentBlock}
       <table><thead><tr>${headerCells}</tr></thead><tbody>${bodyRows}</tbody></table>
       ${legalBlock}
-      <section class="signature"><div class="signature-line">Firma empresa / responsable</div><div class="signature-line">Firma trabajador/a</div></section>
+      <section class="signature"><div class="signature-line">Firma empresa / responsable<br/>Nombre y DNI</div><div class="signature-line">Firma trabajador/a<br/>Nombre y DNI</div></section>
       <footer class="footer">Documento generado automáticamente a partir de los registros de fichaje guardados en la base de datos. Cualquier corrección deberá constar como ajuste, sin modificar el registro original.</footer>
     </main>
   </body>
