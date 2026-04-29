@@ -1743,8 +1743,7 @@ export default function AppFichajeEmpleados() {
             <p className="mt-2 text-slate-600">
               {viewMode === "kiosk" ? "Modo kiosko para tablet de fichaje." : "Panel de administración."}
             </p>
-            <p className="mt-1 text-xs font-bold text-emerald-700">Versión {APP_VERSION}</p>
-            <p className="mt-1 text-xs font-bold text-emerald-700">Versión {APP_VERSION}</p>
+            <p className="mt-1 text-xs font-bold text-blue-600">Versión {APP_VERSION}</p>
           </div>
 
           <div className="flex flex-col gap-3 md:items-end">
