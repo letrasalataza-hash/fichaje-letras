@@ -332,30 +332,39 @@ function formatMinutes(totalMinutes) {
   return `${hours}h ${String(minutes).padStart(2, "0")}min`;
 }
 
-function normalizeRecordsForCalculation(dayRecords) {
-  const ordered = [...dayRecords]
-    .sort((a, b) => a.createdAt - b.createdAt);
+function inferAdjustmentType(record, currentState = "fuera") {
+  const text = `${record.label || ""} ${record.note || ""} ${record.record_type || ""}`.toLowerCase();
 
+  if (record.effectiveType) return record.effectiveType;
+
+  if (text.includes("salida")) return "salida";
+  if (text.includes("entrada")) return "entrada";
+  if (text.includes("fin pausa") || text.includes("fin de pausa") || text.includes("volver")) return "pausa_fin";
+  if (text.includes("pausa")) return "pausa_inicio";
+
+  // Compatibilidad con ajustes antiguos sin descripción clara.
+  if (record.record_type === "ajuste") {
+    if (currentState === "trabajando") return "salida";
+    if (currentState === "pausa") return "pausa_fin";
+    return "entrada";
+  }
+
+  return record.record_type;
+}
+
+function normalizeRecordsForCalculation(dayRecords) {
+  const ordered = [...dayRecords].sort((a, b) => a.createdAt - b.createdAt);
   let state = "fuera";
 
   return ordered.map((record) => {
-    let calculationType = record.effectiveType || record.record_type;
-
-    // Compatibilidad con ajustes antiguos que se guardaron como "ajuste"
-    // sin conservar si eran entrada/salida/pausa. Si hay una entrada abierta,
-    // se interpreta como salida para cerrar la jornada.
-    if (record.record_type === "ajuste" && !record.effectiveType) {
-      if (state === "trabajando") calculationType = "salida";
-      else if (state === "pausa") calculationType = "pausa_fin";
-      else calculationType = "entrada";
-    }
+    const calculationType = inferAdjustmentType(record, state);
 
     if (calculationType === "entrada") state = "trabajando";
     if (calculationType === "pausa_inicio") state = "pausa";
     if (calculationType === "pausa_fin") state = "trabajando";
     if (calculationType === "salida") state = "fuera";
 
-    return { ...record, calculationType };
+    return { ...record, calculationType, effectiveType: record.effectiveType || (record.record_type === "ajuste" ? calculationType : record.effectiveType) };
   });
 }
 
@@ -702,6 +711,11 @@ function runSelfTests() {
     { record_type: "ajuste", createdAt: new Date("2026-04-28T20:30:00").getTime(), note: "" },
   ]);
   console.assert(legacyAdjustmentSummary.netWorkMinutes === 278, "Test ajuste antiguo computa como salida si hay entrada abierta");
+  const explicitExitAdjustmentSummary = calculateDailySummary([
+    { record_type: "entrada", createdAt: new Date("2026-04-28T15:52:00").getTime() },
+    { record_type: "ajuste", label: "Ajuste manual", note: "Salida olvidada", createdAt: new Date("2026-04-28T20:30:00").getTime() },
+  ]);
+  console.assert(explicitExitAdjustmentSummary.netWorkMinutes === 278, "Test ajuste con texto salida computa como salida");
   const sequenceIssues = validateSequenceForNewRecord(
     [{ record_type: "entrada", date: "2026-04-27", time: "09:00", createdAt: new Date("2026-04-27T09:00:00").getTime() }],
     { record_type: "entrada", date: "2026-04-27", time: "10:00", createdAt: new Date("2026-04-27T10:00:00").getTime() }
@@ -2160,3 +2174,4 @@ export default function AppFichajeEmpleados() {
 ReactDOM.createRoot(document.getElementById("root")).render(
   <AppFichajeEmpleados />
 );
+
