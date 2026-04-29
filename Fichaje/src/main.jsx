@@ -1867,10 +1867,22 @@ export default function AppFichajeEmpleados() {
                     )}
                   </div>
 
-                  {inactiveEmployees.length > 0 && (
-                    <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      <h3 className="text-sm font-bold text-slate-700">Empleados dados de baja</h3>
-                      <p className="mb-3 text-xs text-slate-500">No aparecen en el kiosko, pero se conservan para informes históricos.</p>
+                  <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-700">Archivo de empleados dados de baja</h3>
+                        <p className="mb-3 text-xs text-slate-500">No aparecen en el kiosko, pero se conservan para informes históricos.</p>
+                      </div>
+                      <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-600">
+                        {inactiveEmployees.length}
+                      </span>
+                    </div>
+
+                    {inactiveEmployees.length === 0 ? (
+                      <div className="rounded-xl bg-white px-4 py-3 text-sm text-slate-500 shadow-sm">
+                        No hay empleados dados de baja.
+                      </div>
+                    ) : (
                       <div className="space-y-2">
                         {inactiveEmployees.map((employee) => (
                           <button
@@ -1883,8 +1895,8 @@ export default function AppFichajeEmpleados() {
                           </button>
                         ))}
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             </section>
