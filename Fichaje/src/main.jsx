@@ -1685,7 +1685,7 @@ export default function AppFichajeEmpleados() {
   }
 
   function unlockAdmin() {
-    if ((adminPin === ADMIN_PIN || pin.trim() === ADMIN_PIN) && !selectedEmployeeId) {
+    if (adminPin === ADMIN_PIN) {
       setIsAdminUnlocked(true);
       setViewMode("admin");
       setAdminPin("");
@@ -1694,7 +1694,7 @@ export default function AppFichajeEmpleados() {
       return;
     }
 
-    setMessage("Código de administrador incorrecto. Para acceder: deja empleado sin seleccionar e introduce el código admin en el PIN.");
+    setMessage("PIN de administrador incorrecto.");
   }
 
   function handlePinChange(value) {
@@ -1757,6 +1757,19 @@ export default function AppFichajeEmpleados() {
             </div>
 
             <div className="flex flex-wrap gap-2">
+              {viewMode === "kiosk" && !isAdminUnlocked && (
+                <div className="flex gap-2">
+                  <input
+                    value={adminPin}
+                    onChange={(event) => setAdminPin(event.target.value)}
+                    placeholder="PIN admin"
+                    type="password"
+                    className="w-28 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+                  />
+                  <Button onClick={unlockAdmin} variant="outline">Admin</Button>
+                </div>
+              )}
+
               {isAdminUnlocked && (
                 <Button onClick={() => setTestMode(!testMode)} variant="secondary">
                   {testMode ? "Salir modo prueba" : "Modo prueba"}
