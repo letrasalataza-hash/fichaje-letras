@@ -2064,9 +2064,23 @@ export default function AppFichajeEmpleados() {
                         {employees.length === 0 ? (
                           <option value="">Sin empleados</option>
                         ) : (
-                          employees.map((employee) => (
-                            <option key={employee.id} value={employee.id}>{employee.name}{employee.isActive === false ? " · baja" : ""}</option>
-                          ))
+                          <>
+                            {activeEmployees.length > 0 && (
+                              <optgroup label="Empleados activos">
+                                {activeEmployees.map((employee) => (
+                                  <option key={employee.id} value={employee.id}>{employee.name}</option>
+                                ))}
+                              </optgroup>
+                            )}
+
+                            {inactiveEmployees.length > 0 && (
+                              <optgroup label="Empleados dados de baja">
+                                {inactiveEmployees.map((employee) => (
+                                  <option key={employee.id} value={employee.id}>{employee.name} · baja</option>
+                                ))}
+                              </optgroup>
+                            )}
+                          </>
                         )}
                       </select>
                     </label>
