@@ -96,6 +96,19 @@ function buildCSV(records) {
   return [header, ...rows].join("\n");
 }
 
+function getManualAdjustmentRows(records) {
+  return records
+    .filter((record) => record.record_type === "ajuste" || parseAdjustmentNote(record.note).isManualAdjustment)
+    .sort((a, b) => a.createdAt - b.createdAt)
+    .map((record) => [
+      record.date,
+      record.time,
+      getRecordShortLabel(record),
+      record.note || "Sin motivo indicado",
+      record.createdBy || "Admin",
+    ]);
+}
+
 function getEmployeeDisplayName(employeeId, employees) {
   return employees.find((employee) => employee.id === employeeId)?.name || "Empleado";
 }
@@ -159,7 +172,7 @@ function ensurePDFPageSpace(doc, y, needed = 24) {
   return 20;
 }
 
-function buildPDFDocument({ title, employeeName, periodLabel, summaryCards, tableHeaders, tableRows, warnings, signature }) {
+function buildPDFDocument({ title, employeeName, periodLabel, summaryCards, tableHeaders, tableRows, warnings, adjustmentRows = [], signature }) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   let y = 18;
 
@@ -233,6 +246,19 @@ function buildPDFDocument({ title, employeeName, periodLabel, summaryCards, tabl
     y += 5;
     y = addPDFText(doc, `Huella SHA-256: ${signature.hash}`, 15, y, { maxWidth: 180, lineHeight: 5 });
     y += 5;
+  }
+
+  if (adjustmentRows.length > 0) {
+    y = ensurePDFPageSpace(doc, y, 32);
+    doc.setFont("helvetica", "bold");
+    doc.text("Ajustes manuales registrados", 15, y);
+    y += 6;
+    doc.setFont("helvetica", "normal");
+    adjustmentRows.forEach((row) => {
+      y = ensurePDFPageSpace(doc, y, 12);
+      y = addPDFText(doc, `${row[0]} ${row[1]} · ${row[2]} · ${row[3]} · ${row[4]}`, 18, y, { maxWidth: 170, lineHeight: 5 });
+    });
+    y += 4;
   }
 
   y = ensurePDFPageSpace(doc, y, 22);
@@ -551,14 +577,15 @@ function buildDailyReportHTML({ employeeName, filterDate, dailySummary, filtered
     employeeName,
     periodLabel: filterDate,
     summaryCards: [
-      ["Trabajo neto", formatMinutes(dailySummary.netWorkMinutes)],
+      ["Trabajo bruto", formatMinutes(dailySummary.grossWorkMinutes)],
       ["Pausas", formatMinutes(dailySummary.breakMinutes)],
-      ["Registros", dailySummary.recordsCount],
+      ["Trabajo neto", formatMinutes(dailySummary.netWorkMinutes)],
       ["Ajustes", dailySummary.adjustmentCount],
     ],
     tableHeaders: ["Empleado", "Tipo", "Hora", "Fecha", "Nota", "Creado por"],
     tableRows: filteredRecords.map((record) => [record.employeeName, record.label, record.time, record.date, record.note || "", record.createdBy || "Sistema"]),
     warnings: dailySummary.warnings,
+    adjustmentRows: getManualAdjustmentRows(filteredRecords),
     signature,
   });
 }
@@ -583,19 +610,20 @@ function buildMonthlyReportHTML({ employeeName, monthISO, monthlySummary, signat
     employeeName,
     periodLabel: getMonthLabel(monthISO),
     summaryCards: [
-      ["Trabajo neto mensual", formatMinutes(monthlySummary.totals.netWorkMinutes)],
+      ["Trabajo bruto mensual", formatMinutes(monthlySummary.totals.grossWorkMinutes)],
       ["Pausas mensuales", formatMinutes(monthlySummary.totals.breakMinutes)],
-      ["Días con fichajes", monthlySummary.days.length],
+      ["Trabajo neto mensual", formatMinutes(monthlySummary.totals.netWorkMinutes)],
       ["Ajustes", monthlySummary.totals.adjustmentCount],
     ],
     tableHeaders: ["Día", "Trabajo neto", "Pausas", "Registros", "Ajustes", "Incidencias"],
     tableRows: rows,
     warnings,
+    adjustmentRows: getManualAdjustmentRows(monthlySummary.days.flatMap((day) => day.records)),
     signature,
   });
 }
 
-function buildReportHTML({ title, documentLabel, employeeName, periodLabel, summaryCards, tableHeaders, tableRows, warnings, signature }) {
+function buildReportHTML({ title, documentLabel, employeeName, periodLabel, summaryCards, tableHeaders, tableRows, warnings, adjustmentRows = [], signature }) {
   const safeEmployeeName = escapeHTML(employeeName || "Empleado");
   const safePeriodLabel = escapeHTML(periodLabel || "");
   const generatedAt = escapeHTML(nowDateTime());
@@ -637,6 +665,28 @@ function buildReportHTML({ title, documentLabel, employeeName, periodLabel, summ
       </section>`
     : "";
 
+  const adjustmentBlock = adjustmentRows.length
+    ? `
+      <section class="adjustments">
+        <h3>Ajustes manuales registrados</h3>
+        <table>
+          <thead><tr><th>Fecha</th><th>Hora</th><th>Tipo</th><th>Motivo</th><th>Responsable</th></tr></thead>
+          <tbody>
+            ${adjustmentRows
+              .map((row) => `<tr>${row.map((cell) => `<td>${escapeHTML(cell)}</td>`).join("")}</tr>`)
+              .join("")}
+          </tbody>
+        </table>
+      </section>`
+    : "";
+
+  const legalBlock = `
+      <section class="legal-note">
+        <h3>Declaración de integridad</h3>
+        <p>Este informe se ha generado a partir de los registros almacenados en la base de datos del sistema de control horario. Los fichajes originales no deben modificarse ni eliminarse; cualquier corrección debe figurar como ajuste manual trazable, indicando fecha, hora, responsable y motivo.</p>
+        <p>El código de verificación y la huella SHA-256 permiten identificar la versión concreta del informe emitido.</p>
+      </section>`;
+
   return `<!doctype html>
 <html lang="es">
   <head>
@@ -665,6 +715,11 @@ function buildReportHTML({ title, documentLabel, employeeName, periodLabel, summ
       .empty { text-align: center; color: #6b7280; padding: 24px; }
       .warnings { margin-top: 18px; border: 1px solid #f59e0b; border-radius: 14px; background: #fffbeb; padding: 14px; }
       .verification { margin-top: 18px; border: 1px solid #111827; border-radius: 14px; background: #f9fafb; padding: 14px; font-size: 12px; line-height: 1.6; }
+      .adjustments { margin-top: 18px; border: 1px solid #d1d5db; border-radius: 14px; background: #ffffff; padding: 14px; }
+      .adjustments h3 { margin: 0 0 8px; font-size: 15px; }
+      .adjustments table { margin-top: 8px; }
+      .legal-note { margin-top: 18px; border: 1px solid #d1d5db; border-radius: 14px; background: #f9fafb; padding: 14px; font-size: 11px; line-height: 1.5; color: #374151; }
+      .legal-note h3 { margin: 0 0 8px; font-size: 14px; color: #111827; }
       .verification h3 { margin: 0 0 8px; font-size: 15px; }
       .hash { word-break: break-all; font-family: monospace; }
       .warnings h3 { margin: 0 0 8px; font-size: 15px; }
@@ -686,7 +741,9 @@ function buildReportHTML({ title, documentLabel, employeeName, periodLabel, summ
       <section class="summary">${cards}</section>
       ${warningsBlock}
       ${signatureBlock}
+      ${adjustmentBlock}
       <table><thead><tr>${headerCells}</tr></thead><tbody>${bodyRows}</tbody></table>
+      ${legalBlock}
       <section class="signature"><div class="signature-line">Firma empresa / responsable</div><div class="signature-line">Firma trabajador/a</div></section>
       <footer class="footer">Documento generado automáticamente a partir de los registros de fichaje guardados en la base de datos. Cualquier corrección deberá constar como ajuste, sin modificar el registro original.</footer>
     </main>
@@ -1408,9 +1465,9 @@ export default function AppFichajeEmpleados() {
     });
     const fullSignature = { ...signature, generatedAt: nowDateTime(new Date(generatedAt)), generatedBy: adminName || "Admin" };
     const summaryCards = [
-      ["Trabajo neto", formatMinutes(dailySummary.netWorkMinutes)],
+      ["Trabajo bruto", formatMinutes(dailySummary.grossWorkMinutes)],
       ["Pausas", formatMinutes(dailySummary.breakMinutes)],
-      ["Registros", dailySummary.recordsCount],
+      ["Trabajo neto", formatMinutes(dailySummary.netWorkMinutes)],
       ["Ajustes", dailySummary.adjustmentCount],
     ];
     const tableHeaders = ["Empleado", "Tipo", "Hora", "Fecha", "Nota", "Creado por"];
@@ -1431,6 +1488,7 @@ export default function AppFichajeEmpleados() {
       tableHeaders,
       tableRows,
       warnings: dailySummary.warnings,
+      adjustmentRows: getManualAdjustmentRows(filteredRecords),
       signature: fullSignature,
       html,
       fileName: `informe-diario-${safeFileName(selectedEmployeeName)}-${filterDate}.pdf`,
@@ -1488,9 +1546,9 @@ export default function AppFichajeEmpleados() {
       day.summary.warnings.map((warning) => `${day.date}: ${warning}`)
     );
     const summaryCards = [
-      ["Trabajo neto mensual", formatMinutes(monthlySummary.totals.netWorkMinutes)],
+      ["Trabajo bruto mensual", formatMinutes(monthlySummary.totals.grossWorkMinutes)],
       ["Pausas mensuales", formatMinutes(monthlySummary.totals.breakMinutes)],
-      ["Días con fichajes", monthlySummary.days.length],
+      ["Trabajo neto mensual", formatMinutes(monthlySummary.totals.netWorkMinutes)],
       ["Ajustes", monthlySummary.totals.adjustmentCount],
     ];
     const tableHeaders = ["Día", "Trabajo neto", "Pausas", "Registros", "Ajustes", "Incidencias"];
@@ -1509,6 +1567,7 @@ export default function AppFichajeEmpleados() {
       tableHeaders,
       tableRows: rows,
       warnings,
+      adjustmentRows: getManualAdjustmentRows(monthlySummary.days.flatMap((day) => day.records)),
       signature: fullSignature,
       html,
       fileName: `informe-mensual-${safeFileName(selectedEmployeeName)}-${filterMonth}.pdf`,
