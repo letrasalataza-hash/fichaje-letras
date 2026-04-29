@@ -35,8 +35,6 @@ const ADMIN_PIN = "3773";
 const PIN_SALT = "letras-a-la-taza-control-horario-v1";
 const SIGNATURE_SALT = "letras-a-la-taza-firma-informes-v1";
 const APP_VERSION = "FICHAJE-LEGAL-FINAL-1";
-const APP_VERSION = "LEGAL-INSPECCION-V3";
-
 const recordLabels = {
   ajuste: "Ajuste manual",
   entrada: "Entrada registrada",
