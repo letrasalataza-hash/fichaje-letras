@@ -373,7 +373,7 @@ function validateSequenceForNewRecord(existingDayRecords, newRecord) {
 
 function getRecordEmoji(record) {
   const type = record.effectiveType || record.record_type;
-  if (record.record_type === "ajuste") return "🛠️";
+  if (record.record_type === "ajuste" || parseAdjustmentNote(record.note).isManualAdjustment) return "🛠️";
   if (type === "entrada") return "🟢";
   if (type === "salida") return "🔴";
   if (type === "pausa_inicio") return "☕";
@@ -383,7 +383,7 @@ function getRecordEmoji(record) {
 
 function getRecordShortLabel(record) {
   const type = record.effectiveType || record.record_type;
-  const prefix = record.record_type === "ajuste" ? "Ajuste · " : "";
+  const prefix = record.record_type === "ajuste" || parseAdjustmentNote(record.note).isManualAdjustment ? "Ajuste · " : "";
   if (type === "entrada") return `${prefix}Entrada`;
   if (type === "salida") return `${prefix}Salida`;
   if (type === "pausa_inicio") return `${prefix}Pausa`;
@@ -406,7 +406,7 @@ function getTimelineSegments(dayRecords) {
       if (type === "entrada" || type === "pausa_fin") segmentLabel = "Tiempo de trabajo";
       if (type === "pausa_inicio") segmentLabel = "Pausa";
       if (type === "salida") segmentLabel = "Fuera de turno";
-      if (record.record_type === "ajuste") segmentLabel = `Ajuste aplicado · ${segmentLabel}`;
+      if (record.record_type === "ajuste" || parseAdjustmentNote(record.note).isManualAdjustment) segmentLabel = `Ajuste aplicado · ${segmentLabel}`;
     }
 
     return {
@@ -469,7 +469,7 @@ function calculateDailySummary(dayRecords) {
   if (workStart) warnings.push("Hay una entrada abierta sin salida.");
   if (pauseStart) warnings.push("Hay una pausa abierta sin volver.");
 
-  const adjustmentCount = dayRecords.filter((record) => record.record_type === "ajuste").length;
+  const adjustmentCount = dayRecords.filter((record) => record.record_type === "ajuste" || parseAdjustmentNote(record.note).isManualAdjustment).length;
   if (adjustmentCount > 0) warnings.push(`Hay ${adjustmentCount} ajuste(s) manual(es) aplicado(s) en este día.`);
 
   const netWorkMinutes = Math.max(0, workMinutes - breakMinutes);
@@ -786,17 +786,18 @@ async function supabaseRequest(path, options = {}) {
 function parseAdjustmentNote(note) {
   const text = String(note || "");
   const match = text.match(/^Ajuste manual \[(entrada|salida|pausa_inicio|pausa_fin)\] · (.+)$/);
-  if (!match) return { effectiveType: null, cleanNote: text };
-  return { effectiveType: match[1], cleanNote: match[2] };
+  if (!match) return { effectiveType: null, cleanNote: text, isManualAdjustment: false };
+  return { effectiveType: match[1], cleanNote: match[2], isManualAdjustment: true };
 }
 
 function mapRecordFromDatabase(record, employees) {
   const employee = employees.find((item) => item.id === record.employee_id);
   const date = new Date(record.recorded_at);
   const rawNote = record.note || record.notes || "";
-  const parsedAdjustment = record.record_type === "ajuste" ? parseAdjustmentNote(rawNote) : { effectiveType: null, cleanNote: rawNote };
-  const effectiveType = parsedAdjustment.effectiveType;
-  const adjustmentSuffix = effectiveType ? ` (${adjustmentLabels[effectiveType] || effectiveType})` : "";
+  const parsedAdjustment = parseAdjustmentNote(rawNote);
+  const isManualAdjustment = parsedAdjustment.isManualAdjustment || record.record_type === "ajuste";
+  const effectiveType = parsedAdjustment.effectiveType || (record.record_type === "ajuste" ? null : record.record_type);
+  const adjustmentSuffix = isManualAdjustment && effectiveType ? ` (${adjustmentLabels[effectiveType] || effectiveType})` : "";
 
   return {
     id: record.id,
@@ -804,12 +805,12 @@ function mapRecordFromDatabase(record, employees) {
     employeeName: employee?.name || "Empleado sin nombre",
     record_type: record.record_type,
     effectiveType,
-    label: record.record_type === "ajuste" ? `Ajuste manual${adjustmentSuffix}` : recordLabels[record.record_type] || record.record_type,
+    label: isManualAdjustment ? `Ajuste manual${adjustmentSuffix}` : recordLabels[record.record_type] || record.record_type,
     date: record.local_date || record.recorded_at.slice(0, 10),
     time: date.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }),
     createdAt: date.getTime(),
     note: parsedAdjustment.cleanNote,
-    createdBy: record.created_by || (record.record_type === "ajuste" ? "Admin" : "Sistema"),
+    createdBy: record.created_by || (isManualAdjustment ? "Admin" : "Sistema"),
   };
 }
 
@@ -1071,7 +1072,7 @@ export default function AppFichajeEmpleados() {
         id: `adj-${Date.now()}`,
         employeeId: selectedEmployee.id,
         employeeName: selectedEmployee.name,
-        record_type: "ajuste",
+        record_type: adjustType,
         label: `Ajuste manual (${adjustmentLabels[adjustType]})`,
         date: adjustDate,
         time: adjustTime,
@@ -1094,7 +1095,7 @@ export default function AppFichajeEmpleados() {
       const payloadWithNote = {
         organization_id: selectedEmployee.organizationId,
         employee_id: selectedEmployee.id,
-        record_type: "ajuste",
+        record_type: adjustType,
         local_date: adjustDate,
         recorded_at: adjustmentDateTime.toISOString(),
         source: "admin_adjustment",
@@ -1105,7 +1106,7 @@ export default function AppFichajeEmpleados() {
       const payloadWithoutNote = {
         organization_id: selectedEmployee.organizationId,
         employee_id: selectedEmployee.id,
-        record_type: "ajuste",
+        record_type: adjustType,
         local_date: adjustDate,
         recorded_at: adjustmentDateTime.toISOString(),
         source: "admin_adjustment",
@@ -1948,7 +1949,7 @@ export default function AppFichajeEmpleados() {
                                     <p className="mt-1 text-sm text-slate-600">{item.record.note}</p>
                                   )}
                                 </div>
-                                {item.record.record_type === "ajuste" && (
+                                {(item.record.record_type === "ajuste" || parseAdjustmentNote(item.record.note).isManualAdjustment) && (
                                   <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-900">
                                     manual
                                   </span>
