@@ -1300,10 +1300,14 @@ export default function AppFichajeEmpleados() {
     setIsLoading(true);
     try {
       try {
-        await supabaseRequest(`employees?id=eq.${employeeId}`, {
+        const updatedRows = await supabaseRequest(`employees?id=eq.${employeeId}`, {
           method: "PATCH",
           body: JSON.stringify({ is_active: false }),
         });
+
+        if (!updatedRows || updatedRows.length === 0) {
+          throw new Error("Supabase no ha actualizado ningún empleado. Revisa que el id exista y que la tabla permita UPDATE.");
+        }
       } catch (error) {
         const missingActiveColumn = error.message.includes("is_active") || error.message.includes("schema cache");
         if (!missingActiveColumn) throw error;
@@ -1312,6 +1316,7 @@ export default function AppFichajeEmpleados() {
 
       setEmployees((current) => current.map((item) => item.id === employeeId ? { ...item, isActive: false } : item));
       setSelectedEmployeeId((current) => (current === employeeId ? getNextEmployeeId(employeeId, activeEmployees) : current));
+      await loadInitialData();
       setMessage(`Empleado dado de baja: ${employee.name}. Sus fichajes históricos se conservan.`);
     } catch (error) {
       setMessage(`Error dando de baja empleado: ${error.message}`);
