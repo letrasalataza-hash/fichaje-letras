@@ -1743,7 +1743,8 @@ export default function AppFichajeEmpleados() {
             <p className="mt-2 text-slate-600">
               {viewMode === "kiosk" ? "Modo kiosko para tablet de fichaje." : "Panel de administración."}
             </p>
-            <p className="mt-1 text-xs font-bold text-blue-600">Versión {APP_VERSION}</p>
+            <p className="mt-1 text-xs font-bold text-emerald-700">Versión {APP_VERSION}</p>
+            <p className="mt-1 text-xs font-bold text-emerald-700">Versión {APP_VERSION}</p>
           </div>
 
           <div className="flex flex-col gap-3 md:items-end">
@@ -1793,7 +1794,9 @@ export default function AppFichajeEmpleados() {
         </header>
 
         {viewMode === "kiosk" && (
-          <section className="mx-auto max-w-3xl">
+          <section className="mx-auto max-w-6xl">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
+              <div>
             <Card className="rounded-3xl shadow-sm">
               <CardContent className="space-y-5 p-6">
                 <div>
@@ -1884,6 +1887,46 @@ export default function AppFichajeEmpleados() {
                 </div>
               </CardContent>
             </Card>
+              </div>
+
+              <aside>
+                <Card className="rounded-3xl shadow-sm">
+                  <CardContent className="space-y-4 p-6">
+                    <div>
+                      <p className="text-sm font-medium uppercase tracking-wide text-slate-500">Zona privada</p>
+                      <h2 className="text-xl font-bold">Portal del empleado</h2>
+                      <p className="text-sm text-slate-500">Accede a tus nóminas, documentos e informes personales.</p>
+                    </div>
+
+                    <label className="space-y-2 block">
+                      <span className="text-sm font-medium">Email</span>
+                      <input
+                        type="email"
+                        placeholder="tu@email.com"
+                        className="w-full rounded-2xl border border-slate-200 bg-white p-3 outline-none focus:ring-2 focus:ring-slate-300"
+                      />
+                    </label>
+
+                    <label className="space-y-2 block">
+                      <span className="text-sm font-medium">Contraseña</span>
+                      <input
+                        type="password"
+                        placeholder="Contraseña"
+                        className="w-full rounded-2xl border border-slate-200 bg-white p-3 outline-none focus:ring-2 focus:ring-slate-300"
+                      />
+                    </label>
+
+                    <Button className="w-full rounded-2xl p-4 text-base">
+                      Entrar al portal
+                    </Button>
+
+                    <div className="rounded-2xl bg-slate-50 p-4 text-xs text-slate-500">
+                      Próximamente: histórico de nóminas, calendario laboral y documentos personales.
+                    </div>
+                  </CardContent>
+                </Card>
+              </aside>
+            </div>
           </section>
         )}
 
