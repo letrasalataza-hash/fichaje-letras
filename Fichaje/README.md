@@ -1,19 +1,12 @@
-{
-  "name": "fichaje-letras",
-  "version": "1.0.0",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "@vitejs/plugin-react": "latest",
-    "vite": "latest",
-    "react": "latest",
-    "react-dom": "latest",
-    "jspdf": "latest"
-  },
-  "devDependencies": {}
-}
+# Fichaje Letras a la Taza
+
+Proyecto React/Vite listo para desplegar en Vercel.
+
+## Archivos importantes
+- `index.html`
+- `package.json`
+- `src/main.jsx`
+- `src/styles.css`
+
+## Deploy en Vercel
+Sube estos archivos a GitHub manteniendo la estructura. En Vercel, si el proyecto está dentro de la carpeta `Fichaje`, usa `Root Directory = Fichaje`.
