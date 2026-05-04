@@ -34,7 +34,7 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const ADMIN_PIN = "3773";
 const PIN_SALT = "letras-a-la-taza-control-horario-v1";
 const SIGNATURE_SALT = "letras-a-la-taza-firma-informes-v1";
-const APP_VERSION = "FICHAJE-LEGAL-FINAL-1";
+const APP_VERSION = "FICHAJE-LEGAL-FINAL-2";
 const recordLabels = {
   ajuste: "Ajuste manual",
   entrada: "Entrada registrada",
